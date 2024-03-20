@@ -1,0 +1,160 @@
+<html>
+  <head>
+    <link rel="stylesheet" type="text/css" href="style.css" />
+    <style>
+      #results {
+        position: fixed;
+        top: 50px;
+        left: 10px;
+        color: white;
+      }
+
+      #results span {
+        margin: 5px 5px;
+      }
+
+      video {
+        position: fixed;
+        top: 100;
+        left: 0;
+      }
+
+      h1 {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+      }
+
+      button {
+        position: fixed;
+        top: 72;
+        left: 0;
+      }
+      canvas {
+        position: fixed;
+        top: 100;
+        left: 0;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Basic Cloud Vision (Google) Demo -->
+    <div class="topnav">
+      <a href="./index.html">Label Detection</a>
+      <a href="./object_detection.html" class="active">Object Detection</a>
+      <a href="./ocr_text_detection.html">OCR Text Detection</a>
+      <a href="./landmark_detection.html">Landmark Detection</a>
+    </div>
+
+    <video autoplay="true" id="videoElement"></video>
+    <button id="vision_button">Analyze</button>
+    <div id="results"></div>
+    <canvas
+      id="myCanvas"
+      width="640"
+      height="480"
+      style="border: 1px solid #000000"
+    >
+      Your browser does not support the HTML canvas tag.
+    </canvas>
+
+    <script>
+      // Access camera
+      var video = document.querySelector("#videoElement");
+      if (navigator.mediaDevices.getUserMedia) {
+        navigator.mediaDevices
+          .getUserMedia({ video: true })
+          .then(function (stream) {
+            video.srcObject = stream;
+          })
+          .catch(function (err) {
+            console.log("Something went wrong!");
+          });
+      }
+
+      // We only get to work when the vision button is clicked
+      document
+        .querySelector("#vision_button")
+        .addEventListener("click", (evt) => {
+          // extract image as base64, scale it down to reduce data transfer speed
+          var scale = 0.25;
+          var canvas = document.createElement("canvas");
+          canvas.width = video.videoWidth * scale;
+          canvas.height = video.videoHeight * scale;
+          canvas
+            .getContext("2d")
+            .drawImage(video, 0, 0, canvas.width, canvas.height);
+
+          // dataUrl contains base64 version of image
+          var dataUrl = canvas.toDataURL();
+
+          // Send image to google to analyze
+          // Documentation of the annotate feature: https://cloud.google.com/vision/docs/reference/rest/v1/images/annotate
+          fetch(
+            "https://vision.googleapis.com/v1/images:annotate?key=AIzaSyD7JhFRHT3k-qIDtg-f_ysoJEXWzHPNByQ",
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                requests: [
+                  {
+                    features: {
+                      type: "OBJECT_LOCALIZATION",
+                    },
+                    image: {
+                      // have to extract only the image data from dataURL
+                      content: dataUrl.substring(
+                        "data:image/png;base64,".length
+                      ),
+                    },
+                  },
+                ],
+              }),
+            }
+          )
+            .then((resp) => {
+              return resp.json();
+            })
+            .then((json) => {
+              // Simply output the response
+              console.log(json);
+              var canvas = document.getElementById("myCanvas");
+              var ctx = canvas.getContext("2d");
+
+              var imgWidth = canvas.width;
+              var imgHeight = canvas.height;
+
+              json.responses[0].localizedObjectAnnotations.forEach(
+                (annotation) => {
+                  var vertices = annotation.boundingPoly.normalizedVertices;
+                  ctx.beginPath();
+                  ctx.moveTo(
+                    vertices[0].x * imgWidth,
+                    vertices[0].y * imgHeight
+                  );
+                  for (var i = 1; i < vertices.length; i++) {
+                    ctx.lineTo(
+                      vertices[i].x * imgWidth,
+                      vertices[i].y * imgHeight
+                    );
+                  }
+                  ctx.closePath();
+                  ctx.strokeStyle = "red";
+                  ctx.stroke();
+
+                  // Label the object
+                  ctx.fillStyle = "red";
+                  ctx.fillText(
+                    annotation.name,
+                    vertices[0].x * imgWidth,
+                    vertices[0].y * imgHeight - 5
+                  );
+                }
+              );
+            });
+        });
+    </script>
+  </body>
+</html>

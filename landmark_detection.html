@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <link rel="stylesheet" type="text/css" href="style.css" />
+    <style>
+      #results {
+        position: fixed;
+        top: 220px;
+        left: 220px;
+        color: black;
+      }
+
+      #results span {
+        margin: 5px 5px;
+      }
+
+      h1 {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+      }
+
+      input {
+        position: fixed;
+        top: 104px;
+        left: 10px;
+        margin-right: 10px;
+      }
+
+      button {
+        position: fixed;
+        top: 140px;
+        left: 10px;
+        margin-right: 10px;
+      }
+
+      img#selectedImage {
+        position: fixed;
+        top: 180px;
+        left: 10px;
+        max-width: 90%;
+        max-height: 300px;
+      }
+
+      #selectedImageResults {
+        display: flex;
+        flex-direction: row;
+        justify-content: space-around;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Basic Cloud Vision (Google) Demo -->
+    <div class="topnav">
+      <a href="./index.html">Label Detection</a>
+      <a href="./object_detection.html">Object Detection</a>
+      <a href="./ocr_text_detection.html">OCR Text Detection</a>
+      <a href="./landmark_detection.html" class="active">Landmark Detection</a>
+    </div>
+
+    <input type="file" id="imageInput" />
+    <button id="vision_button">Analyze</button>
+    <div id="selectedImageResults">
+      <img id="selectedImage" src="" alt="Selected Image" hidden />
+      <div id="results"></div>
+    </div>
+
+    <script>
+      document
+        .querySelector("#vision_button")
+        .addEventListener("click", function () {
+          var fileInput = document.getElementById("imageInput");
+          var file = fileInput.files[0];
+          var reader = new FileReader();
+
+          reader.onloadend = function () {
+            console.log(reader.result);
+            var selectedImage = document.getElementById("selectedImage");
+            selectedImage.src = reader.result; // Display the image
+            selectedImage.hidden = false; // Make sure the image is visible
+            // Once the file is loaded, modify this section to match the provided JSON
+            fetch(
+              "https://vision.googleapis.com/v1/images:annotate?key=AIzaSyD7JhFRHT3k-qIDtg-f_ysoJEXWzHPNByQ",
+              {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                  requests: [
+                    {
+                      features: [{ type: "LANDMARK_DETECTION" }],
+                      image: {
+                        content: reader.result.split(",")[1], // Use base64 encoded image
+                      },
+                    },
+                  ],
+                }),
+              }
+            )
+              .then((response) => response.json())
+              .then((data) => {
+                console.log(data);
+                var results = document.getElementById("results");
+                results.innerHTML = ""; // Clear previous results
+                data.responses[0].landmarkAnnotations.forEach(function (
+                  annotation
+                ) {
+                  var div = document.createElement("div");
+                  div.textContent =
+                    annotation.description + " - Score: " + annotation.score;
+                  results.appendChild(div);
+                });
+              })
+              .catch((error) => {
+                console.error("Error:", error);
+              });
+          };
+
+          if (file) {
+            reader.readAsDataURL(file);
+          }
+        });
+    </script>
+  </body>
+</html>
